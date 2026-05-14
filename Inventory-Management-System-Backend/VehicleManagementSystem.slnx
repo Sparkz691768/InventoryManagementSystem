@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="VehicleManagementSystem.Application/VehicleManagementSystem.Application.csproj">
+    <BuildDependency Project="VehicleManagementSystem.Domain/VehicleManagementSystem.Domain.csproj" />
+  </Project>
+  <Project Path="VehicleManagementSystem.Domain/VehicleManagementSystem.Domain.csproj" />
+  <Project Path="VehicleManagementSystem.Infrastructure/VehicleManagementSystem.Infrastructure.csproj">
+    <BuildDependency Project="VehicleManagementSystem.Application/VehicleManagementSystem.Application.csproj" />
+  </Project>
+  <Project Path="VehicleManagementSystem/VehicleManagementSystem.csproj">
+    <BuildDependency Project="VehicleManagementSystem.Application/VehicleManagementSystem.Application.csproj" />
+    <BuildDependency Project="VehicleManagementSystem.Infrastructure/VehicleManagementSystem.Infrastructure.csproj" />
+  </Project>
+</Solution>

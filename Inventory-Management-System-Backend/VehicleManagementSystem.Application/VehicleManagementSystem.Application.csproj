@@ -1,0 +1,60 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="DTOs\NewFolder1\**" />
+    <Compile Remove="DTOs\NewFolder2\**" />
+    <Compile Remove="DTOs\NewFolder3\**" />
+    <Compile Remove="DTOs\NewFolder4\**" />
+    <Compile Remove="DTOs\NewFolder5\**" />
+    <Compile Remove="DTOs\NewFolder6\**" />
+    <Compile Remove="DTOs\NewFolder7\**" />
+    <Compile Remove="DTOs\NewFolder\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder1\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder2\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder3\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder4\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder5\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder6\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder7\**" />
+    <EmbeddedResource Remove="DTOs\NewFolder\**" />
+    <None Remove="DTOs\NewFolder1\**" />
+    <None Remove="DTOs\NewFolder2\**" />
+    <None Remove="DTOs\NewFolder3\**" />
+    <None Remove="DTOs\NewFolder4\**" />
+    <None Remove="DTOs\NewFolder5\**" />
+    <None Remove="DTOs\NewFolder6\**" />
+    <None Remove="DTOs\NewFolder7\**" />
+    <None Remove="DTOs\NewFolder\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="DTOs\Vendor.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="DTOs\Directory.Build.props" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VehicleManagementSystem.Domain\VehicleManagementSystem.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
