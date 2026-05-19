@@ -18,3 +18,5 @@ export const createSale = (data) => api.post("/Sale", data);
 
 export const sendInvoice = (saleId) =>
   api.post(`/Sale/${saleId}/send-invoice`);
+
+export const verifyEsewa = (data) => api.post("/Sale/verify-esewa", data);

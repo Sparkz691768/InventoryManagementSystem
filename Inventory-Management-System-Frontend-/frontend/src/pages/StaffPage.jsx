@@ -4,6 +4,7 @@ import {
   getProducts,
   createSale,
   sendInvoice,
+  verifyEsewa,
 } from "../services/staffService";
 
 export default function StaffPage() {
@@ -36,6 +37,43 @@ export default function StaffPage() {
   // Load products on mount
   useEffect(() => {
     loadProducts();
+
+    // eSewa callback: extract 'data' param from the URL after eSewa redirects back
+    const fullUrl = window.location.href;
+    const params = new URLSearchParams(window.location.search);
+    let data = params.get("data");
+
+    // Fallback: eSewa sometimes appends ?data= to a URL that already has ?, creating a malformed URL
+    // In that case URLSearchParams won't find it, so we extract it manually from the full URL
+    if (!data && fullUrl.includes("data=")) {
+      const match = fullUrl.match(/[?&]data=([^&]+)/);
+      if (match) {
+        data = decodeURIComponent(match[1]);
+      }
+    }
+
+    const esewaStatus = params.get("esewa");
+
+    if (data) {
+      const verifyPayment = async () => {
+        try {
+          const res = await verifyEsewa({ data });
+          if (res.data && res.data.success) {
+            showMessage(res.data.message || "Payment completed and verified successfully!", "success");
+          } else {
+            showMessage("Payment verification failed.", "error");
+          }
+        } catch (error) {
+          console.error(error);
+          showMessage("Error verifying eSewa payment.", "error");
+        }
+      };
+      verifyPayment();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (esewaStatus === "failure") {
+      showMessage("eSewa payment transaction failed or was cancelled.", "error");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const loadProducts = async () => {
@@ -488,7 +526,7 @@ export default function StaffPage() {
                 if (e.target.value === "Credit") {
                   setPaymentStatus("Unpaid");
                 } else if (e.target.value === "Online") {
-                  setPaymentStatus("Paid");
+                  setPaymentStatus("Unpaid");
                 }
               }}
             >
@@ -645,7 +683,6 @@ export default function StaffPage() {
             border: "1px solid var(--border-color, #333)",
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2)"
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
             <h2 style={{ marginBottom: "12px", color: "var(--text-color, #fff)" }}>Secure Checkout</h2>
             <p style={{ color: "var(--text-dim, #999)", marginBottom: "24px", lineHeight: "1.5" }}>
               Your sale has been securely recorded. Click the button below to complete your transaction via the eSewa Gateway.
