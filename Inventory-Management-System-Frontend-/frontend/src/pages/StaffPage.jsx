@@ -26,6 +26,12 @@ export default function StaffPage() {
   const [saleId, setSaleId] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success" or "error"
+  
+  // NEW PAYMENT STATUS & METHOD STATES
+  const [paymentStatus, setPaymentStatus] = useState("Paid");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [paidAmount, setPaidAmount] = useState(0);
+  const [esewaRedirectParams, setEsewaRedirectParams] = useState(null);
 
   // Load products on mount
   useEffect(() => {
@@ -163,6 +169,45 @@ export default function StaffPage() {
   };
 
   // ===== CREATE SALE SECTION =====
+  const getCreditDueDate = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 1);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  };
+
+  const triggerEsewaRedirect = (params) => {
+    const form = document.createElement("form");
+    form.setAttribute("method", "POST");
+    form.setAttribute("action", "https://rc-epay.esewa.com.np/api/epay/main/v2/form");
+    
+    const fields = {
+      amount: params.amount,
+      tax_amount: params.taxAmount,
+      product_service_charge: params.serviceCharge,
+      product_delivery_charge: params.deliveryCharge,
+      total_amount: params.totalAmount,
+      transaction_uuid: params.transactionUuid,
+      product_code: params.productCode,
+      signature: params.signature,
+      signed_field_names: params.signedFieldNames,
+      success_url: params.successUrl,
+      failure_url: params.failureUrl,
+    };
+    
+    for (const key in fields) {
+      if (fields.hasOwnProperty(key)) {
+        const hiddenField = document.createElement("input");
+        hiddenField.setAttribute("type", "hidden");
+        hiddenField.setAttribute("name", key);
+        hiddenField.setAttribute("value", fields[key]);
+        form.appendChild(hiddenField);
+      }
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+  };
+
   const handleCreateSale = async () => {
     if (!selectedCustomer) {
       showMessage("Please select a customer.", "error");
@@ -181,14 +226,27 @@ export default function StaffPage() {
           productId: item.productId,
           quantity: item.quantity,
         })),
+        paymentStatus: paymentStatus,
+        paymentMethod: paymentMethod,
+        paidAmount: parseFloat(paidAmount) || 0,
       };
 
       const res = await createSale(saleData);
-      setSaleId(res.data.id);
+      const createdSale = res.data;
+
+      setSaleId(createdSale.id);
       setCart([]);
-      showMessage(
-        `Sale created successfully! Sale ID: ${res.data.id}. You can now send the invoice.`
-      );
+      
+      // Reset payment form states
+      setPaymentStatus("Paid");
+      setPaymentMethod("Cash");
+      setPaidAmount(0);
+
+      // Check for eSewa Sandbox Redirect
+      if (createdSale.paymentMethod === "Online" && createdSale.esewaParameters) {
+        showMessage("Sale created! Please proceed to eSewa.", "success");
+        setEsewaRedirectParams(createdSale.esewaParameters);
+      }
     } catch (error) {
       console.error(error);
       showMessage("Failed to create sale. Please try again.", "error");
@@ -322,7 +380,7 @@ export default function StaffPage() {
             <option value="">-- Select a Product --</option>
             {products.map((product) => (
               <option key={product.id} value={product.id}>
-                {product.productName} - ${product.price} (Stock: {product.stockQuantity})
+                {product.productName} - NPR {product.price} (Stock: {product.stockQuantity})
               </option>
             ))}
           </select>
@@ -361,9 +419,9 @@ export default function StaffPage() {
                 {cart.map((item) => (
                   <tr key={item.productId}>
                     <td>{item.productName}</td>
-                    <td>${item.price}</td>
+                    <td>NPR {item.price}</td>
                     <td>{item.quantity}</td>
-                    <td>${calculateSubtotal(item)}</td>
+                    <td>NPR {calculateSubtotal(item)}</td>
                     <td>
                       <button
                         className="delete-btn"
@@ -381,13 +439,36 @@ export default function StaffPage() {
             <div
               style={{
                 textAlign: "right",
-                marginTop: "12px",
-                fontSize: "18px",
-                fontWeight: "bold",
-                color: "#12372a",
+                marginTop: "16px",
+                padding: "16px",
+                background: "var(--card-bg, rgba(255, 255, 255, 0.05))",
+                borderRadius: "8px",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                maxWidth: "350px",
+                marginLeft: "auto",
               }}
             >
-              Total: ${calculateTotal()}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
+                <span style={{ color: "var(--text-secondary, #475569)" }}>Subtotal:</span>
+                <span style={{ fontWeight: "600" }}>NPR {calculateTotal()}</span>
+              </div>
+              {parseFloat(calculateTotal()) > 5000 && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
+                    <span style={{ color: "var(--text-secondary, #475569)" }}>Loyalty Discount (10%):</span>
+                    <span style={{ fontWeight: "600", color: "var(--text-color, #000)" }}>- NPR {(parseFloat(calculateTotal()) * 0.10).toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "15px" }}>
+                    <span style={{ color: "var(--text-secondary, #475569)" }}>Loyalty Points Earned:</span>
+                    <span style={{ fontWeight: "600", color: "var(--text-color, #000)" }}>{Math.floor((parseFloat(calculateTotal()) * 0.90) / 100)} Points</span>
+                  </div>
+                </>
+              )}
+              <hr style={{ margin: "12px 0", borderColor: "var(--border-color, #e2e8f0)" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "bold" }}>
+                <span>Final Total:</span>
+                <span>NPR {(parseFloat(calculateTotal()) > 5000 ? parseFloat(calculateTotal()) * 0.90 : parseFloat(calculateTotal())).toFixed(2)}</span>
+              </div>
             </div>
           </>
         )}
@@ -396,6 +477,121 @@ export default function StaffPage() {
       {/* ===== CREATE SALE & SEND INVOICE SECTION ===== */}
       <div className="card">
         <h2>4. Complete Transaction</h2>
+
+        <div className="form-grid" style={{ marginBottom: "16px" }}>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: "600", color: "var(--text-dim)" }}>Payment Method</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => {
+                setPaymentMethod(e.target.value);
+                if (e.target.value === "Credit") {
+                  setPaymentStatus("Unpaid");
+                } else if (e.target.value === "Online") {
+                  setPaymentStatus("Paid");
+                }
+              }}
+            >
+              <option value="Cash">Cash</option>
+              <option value="Credit">Credit</option>
+              <option value="Online">Online (eSewa Gateway)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: "600", color: "var(--text-dim)" }}>Payment Status</label>
+            <select
+              value={paymentStatus}
+              disabled={paymentMethod === "Credit" || paymentMethod === "Online"}
+              onChange={(e) => {
+                setPaymentStatus(e.target.value);
+                if (e.target.value === "Paid") {
+                  setPaidAmount(0);
+                }
+              }}
+            >
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Partial">Partial</option>
+            </select>
+          </div>
+
+          {paymentStatus === "Partial" && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: "600", color: "var(--text-dim)" }}>Paid Amount (NPR)</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="Enter paid amount"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Real-time Partial / Credit / Online indicators */}
+        {(paymentMethod === "Credit" || paymentStatus === "Unpaid" || paymentStatus === "Partial") && (
+          <div
+            style={{
+              background: "var(--surface2, rgba(255,255,255,0.03))",
+              padding: "14px",
+              borderRadius: "8px",
+              border: "1px solid var(--border-color, #e2e8f0)",
+              marginBottom: "16px",
+              fontSize: "13.5px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Bill Total:</span>
+              <span style={{ fontWeight: "600" }}>NPR {(parseFloat(calculateTotal()) > 5000 ? parseFloat(calculateTotal()) * 0.90 : parseFloat(calculateTotal())).toFixed(2)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Paid Amount:</span>
+              <span style={{ fontWeight: "600" }}>
+                NPR {paymentStatus === "Partial" ? paidAmount.toFixed(2) : (paymentStatus === "Paid" ? (parseFloat(calculateTotal()) > 5000 ? parseFloat(calculateTotal()) * 0.90 : parseFloat(calculateTotal())).toFixed(2) : "0.00")}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "var(--warning, #f59e0b)" }}>
+              <span>Remaining Balance:</span>
+              <span style={{ fontWeight: "bold" }}>
+                NPR {(() => {
+                  const final = parseFloat(calculateTotal()) > 5000 ? parseFloat(calculateTotal()) * 0.90 : parseFloat(calculateTotal());
+                  if (paymentStatus === "Partial") {
+                    return Math.max(0, final - paidAmount).toFixed(2);
+                  }
+                  if (paymentStatus === "Unpaid" || paymentMethod === "Credit") {
+                    return final.toFixed(2);
+                  }
+                  return "0.00";
+                })()}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#b45309", marginTop: "4px", borderTop: "1px dashed var(--border-color, #e2e8f0)", paddingTop: "6px" }}>
+              <span>Credit Due Date:</span>
+              <span style={{ fontWeight: "bold" }}>{getCreditDueDate()}</span>
+            </div>
+          </div>
+        )}
+
+        {paymentMethod === "Online" && (
+          <div
+            style={{
+              background: "rgba(59,130,246,0.06)",
+              padding: "12px",
+              borderRadius: "8px",
+              border: "1px solid rgba(59,130,246,0.2)",
+              color: "var(--primary, #3b82f6)",
+              fontSize: "13px",
+              marginBottom: "16px"
+            }}
+          >
+            ℹ️ You will be redirected to the secure **eSewa Sandbox Merchant Gateway** checkout to complete this transaction online.
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
           <button
@@ -416,16 +612,80 @@ export default function StaffPage() {
         {saleId && (
           <div
             style={{
-              background: "#dbeafe",
+              background: "var(--primary-dim, rgba(59,130,246,0.08))",
+              border: "1px solid var(--primary-border, rgba(59,130,246,0.2))",
               padding: "12px",
               borderRadius: "8px",
-              color: "#1e40af",
+              color: "var(--primary, #3b82f6)",
             }}
           >
             <strong>Current Sale ID:</strong> {saleId} - Ready to send invoice!
           </div>
         )}
       </div>
+
+      {/* eSewa Manual Redirection Modal */}
+      {esewaRedirectParams && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.7)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+          backdropFilter: "blur(4px)"
+        }}>
+          <div style={{
+            background: "var(--bg-color, #1a1f2c)",
+            padding: "40px",
+            borderRadius: "16px",
+            textAlign: "center",
+            maxWidth: "400px",
+            border: "1px solid var(--border-color, #333)",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2)"
+          }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
+            <h2 style={{ marginBottom: "12px", color: "var(--text-color, #fff)" }}>Secure Checkout</h2>
+            <p style={{ color: "var(--text-dim, #999)", marginBottom: "24px", lineHeight: "1.5" }}>
+              Your sale has been securely recorded. Click the button below to complete your transaction via the eSewa Gateway.
+            </p>
+            <button 
+              onClick={() => {
+                triggerEsewaRedirect(esewaRedirectParams);
+                setEsewaRedirectParams(null); // Close modal once clicked
+              }}
+              style={{
+                width: "100%",
+                padding: "14px",
+                backgroundColor: "#41A124",
+                color: "white",
+                fontSize: "16px",
+                fontWeight: "bold",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 4px 6px -1px rgba(65, 161, 36, 0.4)"
+              }}
+            >
+              Proceed to eSewa Payment
+            </button>
+            <button
+              onClick={() => setEsewaRedirectParams(null)}
+              style={{
+                marginTop: "16px",
+                background: "transparent",
+                border: "none",
+                color: "var(--text-dim, #666)",
+                cursor: "pointer",
+                textDecoration: "underline"
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

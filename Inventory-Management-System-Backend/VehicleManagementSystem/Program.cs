@@ -26,12 +26,15 @@ builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 builder.Services.AddScoped<ISaleService, SaleService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
+// Background Service: Credit Due Reminder Emails
+builder.Services.AddHostedService<CreditReminderBackgroundService>();
+
 // CORS for React frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -45,6 +48,28 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// AUTOMATIC NEON POSTGRESQL DATABASE SCHEMA PATCHER FOR NEW PAYMENT COLUMNS
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""PaymentStatus"" text;
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text;
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""PaidAmount"" numeric DEFAULT 0;
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""RemainingAmount"" numeric DEFAULT 0;
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""DueDate"" timestamp with time zone;
+            ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""ReminderSent"" boolean DEFAULT false;
+        ");
+        Console.WriteLine("Neon PostgreSQL Sales table payment columns patched successfully!");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Neon PostgreSQL database schema patching error: {ex.Message}");
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {

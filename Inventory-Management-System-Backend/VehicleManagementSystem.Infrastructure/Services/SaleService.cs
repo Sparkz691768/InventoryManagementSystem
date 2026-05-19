@@ -62,16 +62,55 @@ namespace VehicleManagementSystem.Infrastructure.Services
 
             decimal finalAmount = totalAmount - discount;
 
+            // NEW PAYMENT CALCULATIONS
+            string paymentStatus = dto.PaymentStatus ?? "Paid";
+            string paymentMethod = dto.PaymentMethod ?? "Cash";
+            decimal paidAmount = 0;
+            decimal remainingAmount = 0;
+            DateTime? dueDate = null;
+
+            if (paymentStatus == "Paid")
+            {
+                paidAmount = finalAmount;
+                remainingAmount = 0;
+            }
+            else if (paymentStatus == "Unpaid")
+            {
+                paidAmount = 0;
+                remainingAmount = finalAmount;
+                dueDate = DateTime.UtcNow.AddMinutes(1);
+            }
+            else if (paymentStatus == "Partial")
+            {
+                paidAmount = Math.Min(dto.PaidAmount, finalAmount);
+                remainingAmount = finalAmount - paidAmount;
+                dueDate = DateTime.UtcNow.AddMinutes(1);
+            }
+
+            var invoiceNum = $"INV-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
             var sale = new Sale
             {
                 CustomerId = dto.CustomerId,
                 TotalAmount = totalAmount,
                 DiscountAmount = discount,
                 FinalAmount = finalAmount,
-                InvoiceNumber = $"INV-{DateTime.UtcNow:yyyyMMddHHmmss}"
+                InvoiceNumber = invoiceNum,
+                PaymentStatus = paymentStatus,
+                PaymentMethod = paymentMethod,
+                PaidAmount = paidAmount,
+                RemainingAmount = remainingAmount,
+                DueDate = dueDate
             };
 
             var created = await _repository.AddSaleWithItemsAsync(sale, saleItems);
+
+            // eSewa Parameters Generator (if online payment)
+            EsewaParametersDto? esewaParams = null;
+            if (paymentMethod == "Online")
+            {
+                esewaParams = PrepareEsewaParameters(invoiceNum, finalAmount);
+            }
 
             return new SaleResponseDto
             {
@@ -82,15 +121,93 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 FinalAmount = created.FinalAmount,
                 SaleDate = created.SaleDate,
                 Message = message,
-                InvoiceNumber = created.InvoiceNumber
+                InvoiceNumber = created.InvoiceNumber,
+                PaymentStatus = created.PaymentStatus,
+                PaymentMethod = created.PaymentMethod,
+                PaidAmount = created.PaidAmount,
+                RemainingAmount = created.RemainingAmount,
+                DueDate = created.DueDate,
+                EsewaParameters = esewaParams
             };
+        }
+
+        private EsewaParametersDto? PrepareEsewaParameters(string invoiceNumber, decimal amount)
+        {
+            try
+            {
+                var secretKey = "8gBm/:&EnhH.1/q"; // eSewa v2 test secret key
+                var productCode = "EPAYTEST";
+                // E-Sewa requires amounts to match exactly (usually without decimals if whole, but we match the string)
+                var amtStr = (amount % 1 == 0) ? amount.ToString("0") : amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+                
+                // eSewa v2 signature format: total_amount=100,transaction_uuid=11-12-13,product_code=EPAYTEST
+                var rawData = $"total_amount={amtStr},transaction_uuid={invoiceNumber},product_code={productCode}";
+                
+                var keyBytes = System.Text.Encoding.UTF8.GetBytes(secretKey);
+                using (var hmac = new System.Security.Cryptography.HMACSHA256(keyBytes))
+                {
+                    var dataBytes = System.Text.Encoding.UTF8.GetBytes(rawData);
+                    var hashBytes = hmac.ComputeHash(dataBytes);
+                    var signature = Convert.ToBase64String(hashBytes);
+
+                    return new EsewaParametersDto
+                    {
+                        Amount = amtStr,
+                        TotalAmount = amtStr,
+                        TransactionUuid = invoiceNumber,
+                        ProductCode = productCode,
+                        Signature = signature
+                    };
+                }
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task<List<SaleResponseDto>> GetAllSalesAsync()
         {
             var sales = await _repository.GetAllSalesAsync();
 
-            return sales.Select(s => new SaleResponseDto
+            return sales.Select(s => {
+                EsewaParametersDto? esewaParams = null;
+                if (s.PaymentMethod == "Online")
+                {
+                    esewaParams = PrepareEsewaParameters(s.InvoiceNumber, s.FinalAmount);
+                }
+                return new SaleResponseDto
+                {
+                    Id = s.Id,
+                    CustomerId = s.CustomerId,
+                    TotalAmount = s.TotalAmount,
+                    DiscountAmount = s.DiscountAmount,
+                    FinalAmount = s.FinalAmount,
+                    SaleDate = s.SaleDate,
+                    Message = s.DiscountAmount > 0 ? "Discount Applied" : "No Discount",
+                    InvoiceNumber = s.InvoiceNumber,
+                    PaymentStatus = s.PaymentStatus,
+                    PaymentMethod = s.PaymentMethod,
+                    PaidAmount = s.PaidAmount,
+                    RemainingAmount = s.RemainingAmount,
+                    DueDate = s.DueDate,
+                    EsewaParameters = esewaParams
+                };
+            }).ToList();
+        }
+
+        public async Task<List<SaleResponseDto>> GetOverdueSalesAsync()
+        {
+            var sales = await _repository.GetAllSalesAsync();
+            var now = DateTime.UtcNow;
+            
+            var overdueSales = sales.Where(s => 
+                (s.PaymentStatus == "Unpaid" || s.PaymentStatus == "Partial") &&
+                s.DueDate.HasValue && 
+                s.DueDate.Value <= now
+            ).ToList();
+
+            return overdueSales.Select(s => new SaleResponseDto
             {
                 Id = s.Id,
                 CustomerId = s.CustomerId,
@@ -98,8 +215,12 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 DiscountAmount = s.DiscountAmount,
                 FinalAmount = s.FinalAmount,
                 SaleDate = s.SaleDate,
-                Message = s.DiscountAmount > 0 ? "Discount Applied" : "No Discount",
-                InvoiceNumber = s.InvoiceNumber
+                InvoiceNumber = s.InvoiceNumber,
+                PaymentStatus = s.PaymentStatus,
+                PaymentMethod = s.PaymentMethod,
+                PaidAmount = s.PaidAmount,
+                RemainingAmount = s.RemainingAmount,
+                DueDate = s.DueDate
             }).ToList();
         }
 
@@ -126,6 +247,12 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 }
             }
 
+            EsewaParametersDto? esewaParams = null;
+            if (s.PaymentMethod == "Online")
+            {
+                esewaParams = PrepareEsewaParameters(s.InvoiceNumber, s.FinalAmount);
+            }
+
             return new SaleResponseDto
             {
                 Id = s.Id,
@@ -136,6 +263,12 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 SaleDate = s.SaleDate,
                 Message = s.DiscountAmount > 0 ? "Discount Applied" : "No Discount",
                 InvoiceNumber = s.InvoiceNumber,
+                PaymentStatus = s.PaymentStatus,
+                PaymentMethod = s.PaymentMethod,
+                PaidAmount = s.PaidAmount,
+                RemainingAmount = s.RemainingAmount,
+                DueDate = s.DueDate,
+                EsewaParameters = esewaParams,
                 Items = items
             };
         }

@@ -29,6 +29,13 @@ namespace VehicleManagementSystem.Controllers
             return Ok(result);
         }
 
+        [HttpGet("overdue")]
+        public async Task<IActionResult> GetOverdueSales()
+        {
+            var result = await _service.GetOverdueSalesAsync();
+            return Ok(result);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetSaleById(int id)
         {

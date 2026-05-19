@@ -10,6 +10,8 @@ namespace VehicleManagementSystem.Application.Interfaces.IServices
 
         Task<SaleResponseDto?> GetSaleByIdAsync(int id);
 
+        Task<List<SaleResponseDto>> GetOverdueSalesAsync();
+
         Task SendInvoiceAsync(int saleId);
     }
 }
