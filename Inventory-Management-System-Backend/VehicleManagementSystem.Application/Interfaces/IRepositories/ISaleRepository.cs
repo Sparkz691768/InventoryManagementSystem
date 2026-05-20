@@ -1,4 +1,4 @@
-﻿using VehicleManagementSystem.Domain.Models;
+using VehicleManagementSystem.Domain.Models;
 
 namespace VehicleManagementSystem.Application.Interfaces.IRepositories
 {
@@ -12,5 +12,6 @@ namespace VehicleManagementSystem.Application.Interfaces.IRepositories
         Task<Sale?> GetSaleByIdAsync(int id);
 
         Task<Sale?> GetSaleWithCustomerAsync(int id);
+        Task UpdateSaleAsync(Sale sale);
     }
 }

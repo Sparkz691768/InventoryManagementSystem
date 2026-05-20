@@ -130,35 +130,32 @@ namespace VehicleManagementSystem.Infrastructure.Services
         private string GenerateReminderHtml(string invoiceNumber, string customerName, decimal remainingAmount, DateTime dueDate)
         {
             return $@"
-            <div style='font-family: Inter, sans-serif; max-width: 600px; margin: auto; padding: 30px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;'>
-                <div style='background: #dc2626; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;'>
-                    <h2 style='color: white; margin: 0; font-size: 20px;'>⚠ Payment Overdue Notice</h2>
+            <div style='font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;'>
+                <div style='background-color: #ffffff; padding: 20px; border: 1px solid #ddd;'>
+                    <h2 style='margin-top: 0;'>Payment Overdue Notice</h2>
+                    <p>Dear {customerName},</p>
+
+                    <p>This is a reminder that your credit payment for <strong>Invoice {invoiceNumber}</strong> was due on <strong>{dueDate.ToLocalTime():yyyy-MM-dd HH:mm}</strong> and has not been paid yet.</p>
+
+                    <table border='1' cellpadding='6' cellspacing='0' style='border-collapse: collapse; margin-top: 10px;'>
+                        <tr style='background-color: #eeeeee;'>
+                            <th align='left'>Invoice</th>
+                            <th align='right'>Remaining Amount</th>
+                            <th align='left'>Due Date</th>
+                        </tr>
+                        <tr>
+                            <td>{invoiceNumber}</td>
+                            <td align='right'>NPR {remainingAmount:N2}</td>
+                            <td>{dueDate.ToLocalTime():yyyy-MM-dd}</td>
+                        </tr>
+                    </table>
+
+                    <br/>
+                    <p>Please visit our store or contact us to settle the payment as soon as possible.</p>
+
+                    <hr style='margin-top: 20px;'/>
+                    <p style='font-size: 12px; color: #888;'>This is an automated reminder from AutoLaya Inventory Management System.</p>
                 </div>
-
-                <p style='font-size: 15px; color: #374151;'>Dear <strong>{customerName}</strong>,</p>
-
-                <p style='font-size: 15px; color: #374151;'>
-                    This is a reminder that your credit payment for 
-                    <strong>Invoice {invoiceNumber}</strong> was due at 
-                    <strong style='color: #dc2626;'>{dueDate.ToLocalTime():yyyy-MM-dd HH:mm}</strong> 
-                    and remains unpaid.
-                </p>
-
-                <div style='background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px 20px; border-radius: 8px; margin: 20px 0;'>
-                    <p style='margin: 0; font-size: 14px; color: #7f1d1d;'>
-                        <strong>Remaining Balance:</strong> 
-                        <span style='font-size: 20px; color: #dc2626;'>NPR {remainingAmount:N2}</span>
-                    </p>
-                </div>
-
-                <p style='font-size: 15px; color: #374151;'>
-                    Please visit our store or contact us to clear your dues at the earliest. 
-                    Continued delay may affect your credit standing.
-                </p>
-
-                <p style='font-size: 13px; color: #9ca3af; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 16px;'>
-                    This is an automated reminder from the Inventory Management System.
-                </p>
             </div>";
         }
     }

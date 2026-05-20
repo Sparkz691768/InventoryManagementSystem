@@ -52,5 +52,16 @@ namespace VehicleManagementSystem.Controllers
             await _service.SendInvoiceAsync(id);
             return Ok(new { message = "Invoice sent successfully" });
         }
+
+        [HttpPost("verify-esewa")]
+        public async Task<IActionResult> VerifyEsewa(VerifyEsewaDto dto)
+        {
+            var success = await _service.VerifyEsewaPaymentAsync(dto);
+            if (success)
+            {
+                return Ok(new { success = true, message = "Payment verified successfully!" });
+            }
+            return BadRequest(new { success = false, message = "Payment verification failed." });
+        }
     }
 }

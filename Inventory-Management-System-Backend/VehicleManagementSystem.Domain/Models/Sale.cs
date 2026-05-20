@@ -24,8 +24,8 @@ namespace VehicleManagementSystem.Domain.Models
         public string InvoiceNumber { get; set; } = string.Empty;
 
         // NEW PAYMENT TRACKING PROPERTIES
-        public string PaymentStatus { get; set; } = "Paid"; // Paid, Unpaid, Partial
-        public string PaymentMethod { get; set; } = "Cash"; // Cash, Credit, Online
+        public string? PaymentStatus { get; set; } = "Paid"; // Paid, Unpaid, Partial
+        public string? PaymentMethod { get; set; } = "Cash"; // Cash, Credit, Online
         public decimal PaidAmount { get; set; }
         public decimal RemainingAmount { get; set; }
         public DateTime? DueDate { get; set; }

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using VehicleManagementSystem.Application.Interfaces.IRepositories;
 using VehicleManagementSystem.Domain.Models;
 using VehicleManagementSystem.Infrastructure.Persistence;
@@ -71,6 +71,12 @@ namespace VehicleManagementSystem.Infrastructure.Repositories
                 .Include(s => s.Items)
                 .Include(s => s.Customer)
                 .FirstOrDefaultAsync(s => s.Id == id);
+        }
+
+        public async Task UpdateSaleAsync(Sale sale)
+        {
+            _context.Sales.Update(sale);
+            await _context.SaveChangesAsync();
         }
     }
 }

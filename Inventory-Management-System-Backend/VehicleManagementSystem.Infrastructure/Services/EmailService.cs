@@ -93,44 +93,48 @@ namespace VehicleManagementSystem.Infrastructure.Services
 
             var loyaltyPoints = sale.TotalAmount > 5000 ? (int)(sale.FinalAmount / 100) : 0;
             var loyaltyHtml = loyaltyPoints > 0 
-                ? $"<p style='color: #16a34a; margin: 4px 0;'><strong>Loyalty Points Earned:</strong> {loyaltyPoints} Points</p>" 
+                ? $"<p>Loyalty Points Earned: {loyaltyPoints} Points</p>" 
                 : "";
 
             var dueDateHtml = sale.DueDate.HasValue 
-                ? $"<p style='color: #b45309; margin: 4px 0;'><strong>Credit Due Date:</strong> {sale.DueDate.Value.ToLocalTime():yyyy-MM-dd HH:mm}</p>" 
+                ? $"<p>Credit Due Date: {sale.DueDate.Value.ToLocalTime():yyyy-MM-dd HH:mm}</p>" 
                 : "";
 
             return $@"
-            <h2>Invoice {sale.InvoiceNumber}</h2>
-            <p><strong>Date:</strong> {sale.SaleDate.ToLocalTime():yyyy-MM-dd HH:mm}</p>
-            <p><strong>Customer:</strong> {sale.Customer?.FullName}</p>
-            <p><strong>Payment Status:</strong> {sale.PaymentStatus}</p>
-            <p><strong>Payment Method:</strong> {sale.PaymentMethod}</p>
+            <div style='font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;'>
+                <div style='background-color: #ffffff; padding: 20px; border: 1px solid #ddd;'>
+                    <h2 style='margin-top: 0;'>Invoice - {sale.InvoiceNumber}</h2>
+                    <p>Date: {sale.SaleDate.ToLocalTime():yyyy-MM-dd HH:mm}</p>
+                    <p>Customer: {sale.Customer?.FullName}</p>
+                    <p>Payment Status: {sale.PaymentStatus}</p>
+                    <p>Payment Method: {sale.PaymentMethod}</p>
 
-            <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse; width: 100%; max-width: 600px;'>
-                <thead>
-                    <tr style='background-color: #f1f5f9;'>
-                        <th align='left'>Product</th>
-                        <th align='center'>Qty</th>
-                        <th align='right'>Unit Price</th>
-                        <th align='right'>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {itemsHtml}
-                </tbody>
-            </table>
+                    <table border='1' cellpadding='6' cellspacing='0' style='width: 100%; border-collapse: collapse; margin-top: 10px;'>
+                        <thead style='background-color: #eeeeee;'>
+                            <tr>
+                                <th align='left'>Product</th>
+                                <th align='center'>Qty</th>
+                                <th align='right'>Unit Price</th>
+                                <th align='right'>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {itemsHtml}
+                        </tbody>
+                    </table>
 
-            <div style='margin-top: 15px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%; max-width: 600px; box-sizing: border-box;'>
-                <p style='margin: 4px 0;'><strong>Subtotal:</strong> NPR {sale.TotalAmount:N2}</p>
-                {(sale.DiscountAmount > 0 ? $"<p style='color: #b91c1c; margin: 4px 0;'><strong>Loyalty Discount (10%):</strong> - NPR {sale.DiscountAmount:N2}</p>" : "")}
-                {loyaltyHtml}
-                <hr style='margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;' />
-                <p style='font-size: 16px; font-weight: bold; margin: 4px 0; color: #0f172a;'><strong>Final Amount:</strong> NPR {sale.FinalAmount:N2}</p>
-                <hr style='margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;' />
-                <p style='margin: 4px 0;'><strong>Paid Amount:</strong> NPR {sale.PaidAmount:N2}</p>
-                <p style='margin: 4px 0;'><strong>Remaining Amount:</strong> NPR {sale.RemainingAmount:N2}</p>
-                {dueDateHtml}
+                    <br/>
+                    <p>Subtotal: NPR {sale.TotalAmount:N2}</p>
+                    {(sale.DiscountAmount > 0 ? $"<p>Loyalty Discount (10%): - NPR {sale.DiscountAmount:N2}</p>" : "")}
+                    {loyaltyHtml}
+                    <p><strong>Final Amount: NPR {sale.FinalAmount:N2}</strong></p>
+                    <p>Paid Amount: NPR {sale.PaidAmount:N2}</p>
+                    <p>Remaining Amount: NPR {sale.RemainingAmount:N2}</p>
+                    {dueDateHtml}
+
+                    <hr style='margin-top: 20px;'/>
+                    <p style='font-size: 12px; color: #888;'>This is an automated invoice from AutoLaya Inventory Management System.</p>
+                </div>
             </div>
             ";
         }

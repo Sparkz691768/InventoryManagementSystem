@@ -62,8 +62,28 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""RemainingAmount"" numeric DEFAULT 0;
             ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""DueDate"" timestamp with time zone;
             ALTER TABLE ""Sales"" ADD COLUMN IF NOT EXISTS ""ReminderSent"" boolean DEFAULT false;
+
+            -- Fix foreign key constraint of SaleItems to reference Parts instead of Products
+            ALTER TABLE ""SaleItems"" DROP CONSTRAINT IF EXISTS ""FK_SaleItems_Products_ProductId"";
+            ALTER TABLE ""SaleItems"" DROP CONSTRAINT IF EXISTS ""FK_SaleItems_Parts_ProductId"";
+            ALTER TABLE ""SaleItems"" ADD CONSTRAINT ""FK_SaleItems_Parts_ProductId"" FOREIGN KEY (""ProductId"") REFERENCES ""Parts""(""Id"") ON DELETE CASCADE;
         ");
         Console.WriteLine("Neon PostgreSQL Sales table payment columns patched successfully!");
+
+        var tables = new List<string>();
+        using (var cmd = context.Database.GetDbConnection().CreateCommand())
+        {
+            cmd.CommandText = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';";
+            context.Database.OpenConnection();
+            using (var reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    tables.Add(reader.GetString(0));
+                }
+            }
+        }
+        Console.WriteLine("Tables in Database: " + string.Join(", ", tables));
     }
     catch (Exception ex)
     {

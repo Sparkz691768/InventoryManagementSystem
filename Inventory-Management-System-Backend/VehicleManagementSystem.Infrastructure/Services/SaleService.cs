@@ -69,7 +69,14 @@ namespace VehicleManagementSystem.Infrastructure.Services
             decimal remainingAmount = 0;
             DateTime? dueDate = null;
 
-            if (paymentStatus == "Paid")
+            if (paymentMethod == "Online")
+            {
+                paymentStatus = "Unpaid";
+                paidAmount = 0;
+                remainingAmount = finalAmount;
+                dueDate = DateTime.UtcNow.AddMinutes(5); // 5 minutes to pay online
+            }
+            else if (paymentStatus == "Paid")
             {
                 paidAmount = finalAmount;
                 remainingAmount = 0;
@@ -186,8 +193,8 @@ namespace VehicleManagementSystem.Infrastructure.Services
                     SaleDate = s.SaleDate,
                     Message = s.DiscountAmount > 0 ? "Discount Applied" : "No Discount",
                     InvoiceNumber = s.InvoiceNumber,
-                    PaymentStatus = s.PaymentStatus,
-                    PaymentMethod = s.PaymentMethod,
+                    PaymentStatus = s.PaymentStatus ?? "Paid",
+                    PaymentMethod = s.PaymentMethod ?? "Cash",
                     PaidAmount = s.PaidAmount,
                     RemainingAmount = s.RemainingAmount,
                     DueDate = s.DueDate,
@@ -216,8 +223,8 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 FinalAmount = s.FinalAmount,
                 SaleDate = s.SaleDate,
                 InvoiceNumber = s.InvoiceNumber,
-                PaymentStatus = s.PaymentStatus,
-                PaymentMethod = s.PaymentMethod,
+                PaymentStatus = s.PaymentStatus ?? "Paid",
+                PaymentMethod = s.PaymentMethod ?? "Cash",
                 PaidAmount = s.PaidAmount,
                 RemainingAmount = s.RemainingAmount,
                 DueDate = s.DueDate
@@ -263,8 +270,8 @@ namespace VehicleManagementSystem.Infrastructure.Services
                 SaleDate = s.SaleDate,
                 Message = s.DiscountAmount > 0 ? "Discount Applied" : "No Discount",
                 InvoiceNumber = s.InvoiceNumber,
-                PaymentStatus = s.PaymentStatus,
-                PaymentMethod = s.PaymentMethod,
+                PaymentStatus = s.PaymentStatus ?? "Paid",
+                PaymentMethod = s.PaymentMethod ?? "Cash",
                 PaidAmount = s.PaidAmount,
                 RemainingAmount = s.RemainingAmount,
                 DueDate = s.DueDate,
@@ -275,6 +282,95 @@ namespace VehicleManagementSystem.Infrastructure.Services
         public async Task SendInvoiceAsync(int saleId)
         {
             await _emailService.SendInvoiceEmailAsync(saleId, string.Empty);
+        }
+
+        public async Task<bool> VerifyEsewaPaymentAsync(VerifyEsewaDto dto)
+        {
+            try
+            {
+                // Decode Base64 string (safely handling URL-safe Base64 and missing padding)
+                var base64Str = dto.Data.Replace('-', '+').Replace('_', '/');
+                switch (base64Str.Length % 4)
+                {
+                    case 2: base64Str += "=="; break;
+                    case 3: base64Str += "="; break;
+                }
+                var base64Bytes = Convert.FromBase64String(base64Str);
+                var jsonString = System.Text.Encoding.UTF8.GetString(base64Bytes);
+                
+                // Parse JSON
+                using var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonString);
+                var root = jsonDoc.RootElement;
+                
+                var status = root.GetProperty("status").GetString();
+                var signature = root.GetProperty("signature").GetString();
+                var transactionUuid = root.GetProperty("transaction_uuid").GetString();
+                var signedFieldNames = root.GetProperty("signed_field_names").GetString() ?? "";
+                
+                // Dynamically construct HMAC-SHA256 data string based on signed_field_names
+                var signedFields = signedFieldNames.Split(',');
+                var rawDataParts = new System.Collections.Generic.List<string>();
+                foreach (var field in signedFields)
+                {
+                    var fieldName = field.Trim();
+                    if (root.TryGetProperty(fieldName, out var valueElement))
+                    {
+                        string valStr = valueElement.ValueKind == System.Text.Json.JsonValueKind.Number 
+                            ? valueElement.GetRawText() 
+                            : valueElement.GetString() ?? "";
+                        rawDataParts.Add($"{fieldName}={valStr}");
+                    }
+                }
+                var rawData = string.Join(",", rawDataParts);
+
+                // Validate signature
+                var secretKey = "8gBm/:&EnhH.1/q"; // eSewa v2 test secret key
+                var keyBytes = System.Text.Encoding.UTF8.GetBytes(secretKey);
+                string computedSignature;
+                using (var hmac = new System.Security.Cryptography.HMACSHA256(keyBytes))
+                {
+                    var dataBytes = System.Text.Encoding.UTF8.GetBytes(rawData);
+                    var hashBytes = hmac.ComputeHash(dataBytes);
+                    computedSignature = Convert.ToBase64String(hashBytes);
+                }
+
+                if (computedSignature != signature || status != "COMPLETE")
+                {
+                    return false;
+                }
+
+                // Retrieve and update the sale
+                var sales = await _repository.GetAllSalesAsync();
+                var sale = sales.FirstOrDefault(s => s.InvoiceNumber == transactionUuid);
+                if (sale == null)
+                {
+                    return false;
+                }
+
+                sale.PaymentStatus = "Paid";
+                sale.PaidAmount = sale.FinalAmount;
+                sale.RemainingAmount = 0;
+                sale.DueDate = null;
+
+                await _repository.UpdateSaleAsync(sale);
+                
+                // Automatically send the invoice email to the customer after successful payment
+                try
+                {
+                    await SendInvoiceAsync(sale.Id);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but do not fail the payment verification transaction
+                    Console.WriteLine($"Payment successful but failed to send invoice email: {ex.Message}");
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

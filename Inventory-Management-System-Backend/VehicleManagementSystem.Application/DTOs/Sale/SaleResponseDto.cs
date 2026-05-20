@@ -42,8 +42,8 @@ namespace VehicleManagementSystem.DTOs.Sale
         public string ProductCode { get; set; } = "EPAYTEST";
         public string Signature { get; set; } = string.Empty;
         public string SignedFieldNames { get; set; } = "total_amount,transaction_uuid,product_code";
-        public string SuccessUrl { get; set; } = "http://localhost:5174/?esewa=success";
-        public string FailureUrl { get; set; } = "http://localhost:5174/?esewa=failure";
+        public string SuccessUrl { get; set; } = "http://localhost:5173/";
+        public string FailureUrl { get; set; } = "http://localhost:5173/?esewa=failure";
     }
 
     public class SaleItemResponseDto
@@ -53,5 +53,10 @@ namespace VehicleManagementSystem.DTOs.Sale
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
+    }
+
+    public class VerifyEsewaDto
+    {
+        public string Data { get; set; } = string.Empty;
     }
 }
